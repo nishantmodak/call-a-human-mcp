@@ -27,9 +27,9 @@ class Config:
     @classmethod
     def from_env(cls) -> "Config":
         channel = os.environ.get("CALL_HUMAN_CHANNEL", "").lower().strip()
-        if channel not in ("slack", "telegram"):
+        if channel not in ("slack", "telegram", "cli"):
             raise ConfigError(
-                "CALL_HUMAN_CHANNEL must be 'slack' or 'telegram'. "
+                "CALL_HUMAN_CHANNEL must be 'slack', 'telegram', or 'cli'. "
                 f"Got: {channel!r}"
             )
 
@@ -37,6 +37,9 @@ class Config:
             timeout = int(os.environ.get("CALL_HUMAN_TIMEOUT", "300"))
         except ValueError:
             raise ConfigError("CALL_HUMAN_TIMEOUT must be an integer number of seconds.")
+
+        if channel == "cli":
+            return cls(channel=channel, timeout=timeout)
 
         if channel == "slack":
             for var in ("SLACK_BOT_TOKEN", "SLACK_APP_TOKEN", "SLACK_CHANNEL_ID"):

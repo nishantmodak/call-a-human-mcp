@@ -84,7 +84,10 @@ def create_server(config: Config) -> FastMCP:
     """Initialise the channel singleton and return the FastMCP instance."""
     global _channel
 
-    if config.channel == "slack":
+    if config.channel == "cli":
+        from call_a_human_mcp.channels.cli import CLIChannel
+        _channel = CLIChannel()
+    elif config.channel == "slack":
         from call_a_human_mcp.channels.slack import SlackChannel
         _channel = SlackChannel(config)
     elif config.channel == "telegram":

@@ -96,7 +96,6 @@ def _run_check(config) -> None:
 def _check_slack(config) -> None:
     try:
         from slack_sdk import WebClient
-        from slack_sdk.errors import SlackApiError
     except ImportError:
         print("ERROR: slack-sdk not installed", file=sys.stderr)
         sys.exit(1)
@@ -111,7 +110,13 @@ def _check_slack(config) -> None:
         print(f"  Bot token: FAILED — {exc}", file=sys.stderr)
         sys.exit(1)
 
-    # 2. Post a test message
+    # 2. Verify app token format
+    if not config.slack_app_token.startswith("xapp-"):
+        print("  App token: WARNING — SLACK_APP_TOKEN should start with 'xapp-'", file=sys.stderr)
+    else:
+        print("  App token: OK (format looks correct)")
+
+    # 3. Post a test message
     try:
         result = client.chat_postMessage(
             channel=config.slack_channel_id,
@@ -123,11 +128,40 @@ def _check_slack(config) -> None:
         print("  Check that SLACK_CHANNEL_ID is correct and the bot is invited to the channel.", file=sys.stderr)
         sys.exit(1)
 
-    # 3. Verify Socket Mode app token (just check format — connecting is too slow for --check)
-    if not config.slack_app_token.startswith("xapp-"):
-        print("  App token: WARNING — SLACK_APP_TOKEN should start with 'xapp-'", file=sys.stderr)
+    # 4. Verify Socket Mode connects (confirms app token is valid and Socket Mode is enabled).
+    import threading
+    import time
+    try:
+        from slack_bolt import App
+        from slack_bolt.adapter.socket_mode import SocketModeHandler
+    except ImportError:
+        print("ERROR: slack-bolt not installed", file=sys.stderr)
+        sys.exit(1)
+
+    connected = threading.Event()
+    app = App(token=config.slack_bot_token, logger=logging.getLogger("slack_bolt.check"))
+
+    # Patch the handler to signal once the WebSocket opens
+    original_connect = None
+
+    handler = SocketModeHandler(app, config.slack_app_token)
+
+    def _start_and_signal():
+        try:
+            handler.connect()
+            connected.set()
+        except Exception as exc:
+            logger.debug("Socket Mode connect error: %s", exc)
+
+    t = threading.Thread(target=_start_and_signal, daemon=True)
+    t.start()
+
+    if connected.wait(timeout=10):
+        print("  Socket Mode: OK (WebSocket connection established)")
     else:
-        print(f"  App token: OK (format looks correct)")
+        print("  Socket Mode: FAILED — could not connect within 10s", file=sys.stderr)
+        print("  Check: Slack app → Socket Mode is enabled, and SLACK_APP_TOKEN is correct.", file=sys.stderr)
+        sys.exit(1)
 
     print("\nSlack check passed. call-a-human-mcp is ready to use.")
 

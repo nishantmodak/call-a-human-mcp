@@ -54,23 +54,37 @@ class SlackChannel(Channel):
     # ------------------------------------------------------------------
 
     def start(self) -> None:
-        """Start the Socket Mode handler in a daemon thread. Idempotent."""
+        """Start the Socket Mode handler in a daemon thread. Idempotent.
+
+        Blocks until the WebSocket connection is established so that callers
+        can post messages immediately after returning without risking a race
+        where a fast human reply arrives before the connection is open.
+        """
         with self._start_lock:
             if self._started:
                 return
             self._handler = SocketModeHandler(
                 self._app, self._config.slack_app_token
             )
-            # Run in a daemon thread so it doesn't block the MCP server
-            # and exits cleanly when the main process exits.
+            # Run handler.start() in a daemon thread (single connect path).
             t = threading.Thread(
                 target=self._handler.start,
                 name="slack-socket-mode",
                 daemon=True,
             )
             t.start()
+            # Poll until the underlying WebSocket client reports connected.
+            import time
+            deadline = time.monotonic() + 10
+            while time.monotonic() < deadline:
+                client = getattr(self._handler, "client", None)
+                if client is not None and getattr(client, "is_connected", False):
+                    break
+                time.sleep(0.2)
+            else:
+                raise RuntimeError("Slack Socket Mode failed to connect within 10s")
             self._started = True
-            logger.info("Slack Socket Mode handler started.")
+            logger.info("Slack Socket Mode connected.")
 
     def ask(self, req: HumanRequest) -> str:
         """Post a question to Slack and wait for a thread reply."""

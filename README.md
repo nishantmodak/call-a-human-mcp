@@ -31,6 +31,8 @@ Details: db-staging-01 on RDS
 Approve? [y/N]:
 ```
 
+> **How it works with stdio transport**: MCP's stdio transport owns `stdin`/`stdout` for its protocol messages. The CLI channel bypasses this by reading and writing directly to `/dev/tty` (the controlling terminal), so prompts appear in your terminal without interfering with the MCP wire protocol. Falls back to `stderr`/`stdin` when `/dev/tty` is unavailable (Windows, CI, Docker containers without an attached TTY — in those cases use Slack or Telegram instead).
+
 ### Slack
 
 `ask_human` — Posts a message, waits for a **thread reply**:

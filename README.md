@@ -33,9 +33,11 @@ The tool call **blocks** until you respond (or the timeout expires).
 
 Pick the path that matches your setup:
 
-- **[macOS, no accounts needed →](#option-a-cli-macos-dialogs)** CLI channel with native system dialogs
-- **[Personal use, phone notifications →](#option-b-telegram)** Telegram bot
-- **[Team use →](#option-c-slack)** Slack channel with Approve/Deny buttons
+| Channel | Best for | Tested |
+|---------|----------|--------|
+| [CLI (macOS dialogs)](#option-a-cli-macos-dialogs) | macOS, no accounts needed | ✅ Tested |
+| [Slack](#option-c-slack) | Teams, Approve/Deny buttons | ✅ Tested |
+| [Telegram](#option-b-telegram) | Personal use, phone notifications | ⚠️ Lightly tested |
 
 ---
 
@@ -55,6 +57,12 @@ uv sync
 
 ```bash
 CALL_HUMAN_CHANNEL=cli uv run call-a-human-mcp --check
+```
+
+Expected output:
+```
+Checking cli channel...
+CLI channel: OK (no credentials needed)
 ```
 
 **3. Add to Claude Desktop** (`~/Library/Application Support/Claude/claude_desktop_config.json`):
@@ -77,13 +85,29 @@ CALL_HUMAN_CHANNEL=cli uv run call-a-human-mcp --check
 
 **4. Restart Claude Desktop** (quit fully — Cmd+Q — then reopen).
 
-A native macOS dialog pops up whenever Claude calls `ask_human` or `request_approval`.
+**What you'll see:**
+
+When Claude calls `ask_human`, a native macOS dialog appears:
+
+```
+┌─────────────────────────────────────────────────────┐
+│  Claude is asking:                                  │
+│  Which database environment should I target?        │
+│                                                     │
+│  [  Reply here...                                 ] │
+│                              [Cancel]  [OK]         │
+└─────────────────────────────────────────────────────┘
+```
+
+When Claude calls `request_approval`, a dialog with Approve/Deny options appears. Claude blocks until you respond.
 
 > **On Linux/Windows or CI?** No interactive fallback exists without a terminal. Use Telegram or Slack instead.
 
 ---
 
 ## Option B: Telegram
+
+> ⚠️ **Not extensively tested.** The implementation follows the Telegram Bot API spec and basic flows work, but edge cases may exist. Feedback welcome.
 
 Best for personal use — instant phone notifications, buttons work in the Telegram app.
 
@@ -110,7 +134,16 @@ TELEGRAM_CHAT_ID=<chat_id> \
 uv run call-a-human-mcp --check
 ```
 
-A test message appears in Telegram. If it doesn't, recheck the token and chat ID.
+Expected output:
+```
+Checking telegram channel...
+  Bot token: OK (bot: @your_bot_username)
+  Test message: OK (chat_id: -100123456789)
+
+Telegram check passed. call-a-human-mcp is ready to use.
+```
+
+A test message also appears in your Telegram chat. If it doesn't, recheck the token and chat ID.
 
 **4. Add to Claude Desktop:**
 
@@ -131,6 +164,34 @@ A test message appears in Telegram. If it doesn't, recheck the token and chat ID
 ```
 
 **5. Restart Claude Desktop** (Cmd+Q → reopen).
+
+**What you'll see:**
+
+When Claude calls `ask_human`, a message appears in your Telegram chat:
+
+```
+🤔 Claude is asking:
+Which database environment should I target?
+
+Context: Running migration job started at 14:32.
+
+Reply to this message with your answer.
+```
+
+Reply directly to the message. Claude receives your reply and continues.
+
+When Claude calls `request_approval`, you get Approve/Deny buttons:
+
+```
+⚠️ Approval requested:
+Deploy api-service v2.4.1 to production
+
+Details: Replaces v2.3.8. 12 pods will restart.
+
+[ ✅ Approve ]  [ ❌ Deny ]
+```
+
+Tap a button — Claude immediately receives the result.
 
 ---
 
@@ -183,7 +244,18 @@ SLACK_CHANNEL_ID=C... \
 uv run call-a-human-mcp --check
 ```
 
-A test message appears in Slack. If it fails, check the bot is invited to the channel.
+Expected output:
+```
+Checking slack channel...
+  Bot token: OK (bot: @call-a-human, workspace: YourWorkspace)
+  App token: OK (format looks correct)
+  Test message: OK (channel: C1234567890, ts: 1234567890.123456)
+  Socket Mode: OK (WebSocket connection established)
+
+Slack check passed. call-a-human-mcp is ready to use.
+```
+
+All four checks must pass. If Socket Mode fails, ensure it is enabled in your Slack app and the app token is correct.
 
 **3. Add to Claude Desktop:**
 
@@ -205,6 +277,32 @@ A test message appears in Slack. If it fails, check the bot is invited to the ch
 ```
 
 **4. Restart Claude Desktop** (Cmd+Q → reopen).
+
+**What you'll see:**
+
+When Claude calls `ask_human`, a message appears in your Slack channel:
+
+```
+🤔 Claude is asking:
+Which database environment should I target?
+
+Context: Running migration job started at 14:32.
+Reply in this thread ↓
+```
+
+Reply in the thread — Claude receives your text reply and continues.
+
+When Claude calls `request_approval`, you get interactive buttons:
+
+```
+⚠️ Approval requested
+Action: Deploy api-service v2.4.1 to production
+Details: Replaces v2.3.8. 12 pods will restart.
+
+[✅ Approve]  [❌ Deny]
+```
+
+Click a button — Claude immediately receives the result and the message updates to show your decision.
 
 ---
 
@@ -265,6 +363,8 @@ CALL_HUMAN_CHANNEL=slack ... call-a-human-mcp --transport sse --host 0.0.0.0 --p
 ---
 
 ## Running as a persistent SSE server
+
+> **Security note:** The SSE transport has no built-in authentication. Protect it with a reverse proxy (nginx, Caddy) or firewall rules — anyone who can reach the port can send messages to your Slack/Telegram channel.
 
 For self-hosted deployments or clients that connect over HTTP:
 

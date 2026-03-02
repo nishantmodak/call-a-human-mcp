@@ -6,3 +6,7 @@ dist/
 build/
 *.egg-info/
 .ruff_cache/
+.env
+logs/
+*.jsonl
+.claude/

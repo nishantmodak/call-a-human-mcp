@@ -40,6 +40,8 @@ class Config:
             timeout = int(os.environ.get("CALL_HUMAN_TIMEOUT", "300"))
         except ValueError:
             raise ConfigError("CALL_HUMAN_TIMEOUT must be an integer number of seconds.")
+        if timeout <= 0:
+            raise ConfigError("CALL_HUMAN_TIMEOUT must be a positive integer.")
 
         audit_log = os.environ.get("CALL_HUMAN_AUDIT_LOG", "")
 

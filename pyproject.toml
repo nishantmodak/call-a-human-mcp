@@ -9,11 +9,17 @@ description = "MCP server for human-in-the-loop approvals and questions via Slac
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "Apache-2.0" }
+authors = [{ name = "Nishant Modak" }]
 keywords = ["mcp", "human-in-the-loop", "slack", "telegram", "ai", "agents"]
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: Apache Software License",
 ]
+
+[project.urls]
+Homepage = "https://github.com/nishantmodak/call-a-human-mcp"
+Repository = "https://github.com/nishantmodak/call-a-human-mcp"
+"Bug Tracker" = "https://github.com/nishantmodak/call-a-human-mcp/issues"
 
 dependencies = [
     "mcp[cli]>=1.6.0",

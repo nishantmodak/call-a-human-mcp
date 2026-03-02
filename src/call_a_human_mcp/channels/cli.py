@@ -120,7 +120,9 @@ def _macos_approve(action: str, details: str) -> tuple[bool, str]:
 
 def _quote(text: str) -> str:
     """Escape a string for embedding in an AppleScript literal."""
-    escaped = text.replace("\\", "\\\\").replace('"', '\\"')
+    # Strip newlines — they break AppleScript string literals
+    sanitised = text.replace("\r", " ").replace("\n", " ")
+    escaped = sanitised.replace("\\", "\\\\").replace('"', '\\"')
     return f'"{escaped}"'
 
 

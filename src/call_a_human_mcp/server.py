@@ -134,11 +134,13 @@ def request_approval(
     return {"approved": approved, "reason": reason}
 
 
-def create_server(config: Config) -> FastMCP:
+def create_server(config: Config, host: str = "127.0.0.1", port: int = 8000) -> FastMCP:
     """Initialise the channel and audit log singletons, return the FastMCP instance."""
-    global _channel, _audit
+    global _channel, _audit, mcp
 
     _audit = AuditLog(config.audit_log)
+    mcp.settings.host = host
+    mcp.settings.port = port
 
     if config.channel == "cli":
         from call_a_human_mcp.channels.cli import CLIChannel

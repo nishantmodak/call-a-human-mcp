@@ -63,7 +63,7 @@ def main() -> None:
 
     from call_a_human_mcp.server import create_server
 
-    mcp = create_server(config)
+    mcp = create_server(config, host=args.host, port=args.port)
 
     if args.transport == "sse":
         # For SSE (persistent server), start the channel eagerly so the first
@@ -71,7 +71,7 @@ def main() -> None:
         from call_a_human_mcp.server import _channel as ch
         if ch is not None:
             ch.start()
-        mcp.run(transport="sse", host=args.host, port=args.port)
+        mcp.run(transport="sse")
     else:
         # stdio: channel starts lazily on first tool call
         mcp.run(transport="stdio")

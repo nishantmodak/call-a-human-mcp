@@ -1,15 +1,31 @@
 # call-a-human-mcp
 
-An MCP server that lets AI agents pause and ask a human for input or approval — via Slack, Telegram, or macOS dialogs.
+Your AI agent is about to delete the production database. Do you want it to just go ahead?
 
-Any MCP-compatible agent (Claude Desktop, Cursor, Windsurf, etc.) can call two tools:
+**call-a-human-mcp** is an MCP server that gives any AI agent a pause button — it can ask you a question or request your approval before taking action, and it won't proceed until you respond.
+
+```
+Claude:  request_approval("Drop table users_backup — 2.1GB, irreversible")
+
+Slack:   ⚠️  AI Agent requesting approval
+         Action: Drop table users_backup — 2.1GB, irreversible
+         [Approve]  [Deny]
+                              ← you click Deny
+Claude:  "Understood, skipping the deletion."
+```
+
+Works with Claude Desktop, Cursor, Windsurf, and any MCP-compatible agent. Notifications via Slack, Telegram, or macOS system dialogs.
+
+Two tools:
 
 | Tool | When to use | Returns |
 |------|-------------|---------|
 | `ask_human(question, context?)` | Need information only a human can provide | `str` — human's text reply |
 | `request_approval(action, details?)` | Before any irreversible action | `{"approved": bool, "reason": str}` |
 
-The tool call **blocks** until the human responds (or the timeout expires).
+The tool call **blocks** until you respond (or the timeout expires).
+
+**More:** [Use cases](docs/use-cases.md) · [Slack permissions](docs/slack-permissions.md) · [Troubleshooting](docs/troubleshooting.md)
 
 ---
 
@@ -47,7 +63,7 @@ CALL_HUMAN_CHANNEL=cli uv run call-a-human-mcp --check
 {
   "mcpServers": {
     "call-a-human": {
-      "command": "uv",
+      "command": "/Users/yourname/.local/bin/uv",
       "args": ["--directory", "/path/to/call-a-human-mcp", "run", "call-a-human-mcp"],
       "env": {
         "CALL_HUMAN_CHANNEL": "cli"
@@ -56,6 +72,8 @@ CALL_HUMAN_CHANNEL=cli uv run call-a-human-mcp --check
   }
 }
 ```
+
+> **Use the full path to `uv`**, not just `uv`. Claude Desktop launches with a restricted PATH that won't find `uv` in `~/.local/bin`. Run `which uv` to get your full path.
 
 **4. Restart Claude Desktop** (quit fully — Cmd+Q — then reopen).
 
@@ -100,7 +118,7 @@ A test message appears in Telegram. If it doesn't, recheck the token and chat ID
 {
   "mcpServers": {
     "call-a-human": {
-      "command": "uv",
+      "command": "/Users/yourname/.local/bin/uv",
       "args": ["--directory", "/path/to/call-a-human-mcp", "run", "call-a-human-mcp"],
       "env": {
         "CALL_HUMAN_CHANNEL": "telegram",
@@ -173,7 +191,7 @@ A test message appears in Slack. If it fails, check the bot is invited to the ch
 {
   "mcpServers": {
     "call-a-human": {
-      "command": "uv",
+      "command": "/Users/yourname/.local/bin/uv",
       "args": ["--directory", "/path/to/call-a-human-mcp", "run", "call-a-human-mcp"],
       "env": {
         "CALL_HUMAN_CHANNEL": "slack",
@@ -395,6 +413,17 @@ uv run --extra dev ruff check src tests
 5. Add `--check` support in `__main__.py`'s `_run_check()`
 
 No changes to the MCP tool definitions needed.
+
+---
+
+## Troubleshooting
+
+See [docs/troubleshooting.md](docs/troubleshooting.md) for solutions to common issues:
+
+- Claude Desktop "Failed to spawn process" → use full path to `uv`
+- Slack thread replies not received → private channel needs extra permissions
+- `message.groups` not showing in Slack event list → add `groups:read` scope first
+- Claude doesn't call tools automatically → add a custom system prompt
 
 ---
 

@@ -1,14 +1,8 @@
 # call-a-human-mcp
 
-An MCP server that lets AI agents pause and ask a human for input or approval — via Slack, Telegram, or your terminal.
+An MCP server that lets AI agents pause and ask a human for input or approval — via Slack, Telegram, or macOS dialogs.
 
-Inspired by the human-in-the-loop feature in [mithai](https://github.com/nishantmodak/mithai).
-
----
-
-## What it does
-
-Any MCP-compatible AI agent (Claude Desktop, Cursor, Windsurf, etc.) can call two tools:
+Any MCP-compatible agent (Claude Desktop, Cursor, Windsurf, etc.) can call two tools:
 
 | Tool | When to use | Returns |
 |------|-------------|---------|
@@ -17,139 +11,44 @@ Any MCP-compatible AI agent (Claude Desktop, Cursor, Windsurf, etc.) can call tw
 
 The tool call **blocks** until the human responds (or the timeout expires).
 
-### CLI (fastest to try)
+---
 
-No accounts needed. The channel picks the best available interaction method automatically:
+## 5-minute quick start
 
-| Environment | How you see the prompt |
-|-------------|----------------------|
-| Terminal (mcp dev, SSE mode) | Prints to `/dev/tty`, reads your input |
-| Claude Desktop on macOS | Native system dialog (via `osascript`) |
-| CI / Docker / Windows | `TimeoutError` with a clear message — use Slack or Telegram instead |
+Pick the path that matches your setup:
 
-**Terminal prompt:**
-```
-============================================================
-APPROVAL REQUIRED
-============================================================
-Action: delete the staging database
-Details: db-staging-01 on RDS
-============================================================
-Approve? [y/N]:
-```
-
-**macOS dialog (Claude Desktop):**
-
-A native macOS dialog pops up even when the process has no terminal — your answer goes directly back to the AI agent.
-
-### Slack
-
-`ask_human` — Posts a message, waits for a **thread reply**:
-
-![Slack ask_human](https://placeholder/slack-ask.png)
-
-`request_approval` — Posts a message with **Approve / Deny** buttons:
-
-![Slack request_approval](https://placeholder/slack-approval.png)
-
-### Telegram
-
-`ask_human` — Sends a message, waits for the next text reply.
-
-`request_approval` — Sends a message with **Approve / Deny** inline keyboard buttons.
+- **[macOS, no accounts needed →](#option-a-cli-macos-dialogs)** CLI channel with native system dialogs
+- **[Personal use, phone notifications →](#option-b-telegram)** Telegram bot
+- **[Team use →](#option-c-slack)** Slack channel with Approve/Deny buttons
 
 ---
 
-## Installation
+## Option A: CLI (macOS dialogs)
 
-### With uvx (zero-install, recommended)
+No Slack or Telegram account needed. Works with Claude Desktop on macOS via native system dialogs.
 
-```bash
-uvx call-a-human-mcp
-```
-
-### With uv
-
-```bash
-uv tool install call-a-human-mcp
-call-a-human-mcp
-```
-
-### From source
+**1. Clone and install:**
 
 ```bash
 git clone https://github.com/nishantmodak/call-a-human-mcp
 cd call-a-human-mcp
 uv sync
-uv run call-a-human-mcp
 ```
 
----
-
-## Configuration
-
-All configuration is via environment variables.
-
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `CALL_HUMAN_CHANNEL` | Yes | — | `cli`, `slack`, or `telegram` |
-| `CALL_HUMAN_TIMEOUT` | No | `300` | Seconds to wait before auto-denying |
-| `SLACK_BOT_TOKEN` | Slack only | — | Bot OAuth token (`xoxb-…`) |
-| `SLACK_APP_TOKEN` | Slack only | — | App-level Socket Mode token (`xapp-…`) |
-| `SLACK_CHANNEL_ID` | Slack only | — | Channel to post into (`C…`) |
-| `TELEGRAM_BOT_TOKEN` | Telegram only | — | Bot token from @BotFather |
-| `TELEGRAM_CHAT_ID` | Telegram only | — | Chat/group ID to post into |
-
-### Slack app requirements
-
-Your Slack app needs:
-- **Bot scopes**: `chat:write`, `channels:history`, `groups:history`
-- **Event subscriptions**: `message.channels` or `message.groups` (for `ask_human` thread replies)
-- **Interactivity** enabled (for Approve/Deny buttons)
-- **Socket Mode** enabled with an App-Level Token (`connections:write` scope)
-
----
-
-## Quick start with the CLI channel
-
-The fastest way to try it — no Slack or Telegram account needed:
+**2. Verify it works:**
 
 ```bash
-CALL_HUMAN_CHANNEL=cli uv run call-a-human-mcp --transport sse --port 8000
+CALL_HUMAN_CHANNEL=cli uv run call-a-human-mcp --check
 ```
 
-Then add it to your MCP client pointed at `http://localhost:8000/sse`. Any `ask_human` or `request_approval` call will prompt you directly in the terminal.
-
-## Trying tools interactively with `mcp dev`
-
-Use the MCP Inspector to call tools without an AI agent:
-
-```bash
-# Install mcp CLI if you haven't
-uv tool install mcp
-
-# Run the dev inspector (opens a browser UI)
-CALL_HUMAN_CHANNEL=cli mcp dev src/call_a_human_mcp/server.py
-```
-
-The Inspector lets you call `ask_human` and `request_approval` directly and see the JSON responses. The CLI channel handles the prompts in your terminal.
-
----
-
-## Claude Desktop configuration
-
-Edit `~/Library/Application Support/Claude/claude_desktop_config.json`:
-
-### CLI (macOS native dialogs)
-
-On macOS, the CLI channel automatically falls back to native system dialogs when no terminal is attached — which is exactly what happens when Claude Desktop launches the server as a subprocess.
+**3. Add to Claude Desktop** (`~/Library/Application Support/Claude/claude_desktop_config.json`):
 
 ```json
 {
   "mcpServers": {
     "call-a-human": {
-      "command": "uvx",
-      "args": ["call-a-human-mcp"],
+      "command": "uv",
+      "args": ["--directory", "/path/to/call-a-human-mcp", "run", "call-a-human-mcp"],
       "env": {
         "CALL_HUMAN_CHANNEL": "cli"
       }
@@ -158,54 +57,196 @@ On macOS, the CLI channel automatically falls back to native system dialogs when
 }
 ```
 
-A macOS dialog pops up when Claude calls `ask_human` or `request_approval`. No Slack or Telegram account needed.
+**4. Restart Claude Desktop** (quit fully — Cmd+Q — then reopen).
 
-> **Not on macOS?** Use Slack or Telegram instead — the CLI channel has no interactive fallback on Windows or Linux without a terminal.
+A native macOS dialog pops up whenever Claude calls `ask_human` or `request_approval`.
 
-### Slack
+> **On Linux/Windows or CI?** No interactive fallback exists without a terminal. Use Telegram or Slack instead.
+
+---
+
+## Option B: Telegram
+
+Best for personal use — instant phone notifications, buttons work in the Telegram app.
+
+**1. Create a bot:**
+
+- Message [@BotFather](https://t.me/BotFather) → `/newbot` → follow prompts → copy the token
+
+**2. Find your chat ID:**
+
+Send any message to your new bot, then run:
+
+```bash
+curl "https://api.telegram.org/bot<TOKEN>/getUpdates" | python3 -m json.tool | grep '"id"' | head -1
+```
+
+The number is your chat ID (negative for groups, e.g. `-100123456789`).
+
+**3. Verify credentials:**
+
+```bash
+CALL_HUMAN_CHANNEL=telegram \
+TELEGRAM_BOT_TOKEN=<token> \
+TELEGRAM_CHAT_ID=<chat_id> \
+uv run call-a-human-mcp --check
+```
+
+A test message appears in Telegram. If it doesn't, recheck the token and chat ID.
+
+**4. Add to Claude Desktop:**
 
 ```json
 {
   "mcpServers": {
     "call-a-human": {
-      "command": "uvx",
-      "args": ["call-a-human-mcp"],
+      "command": "uv",
+      "args": ["--directory", "/path/to/call-a-human-mcp", "run", "call-a-human-mcp"],
       "env": {
-        "CALL_HUMAN_CHANNEL": "slack",
-        "SLACK_BOT_TOKEN": "xoxb-your-bot-token",
-        "SLACK_APP_TOKEN": "xapp-your-app-token",
-        "SLACK_CHANNEL_ID": "C1234567890",
-        "CALL_HUMAN_TIMEOUT": "300"
+        "CALL_HUMAN_CHANNEL": "telegram",
+        "TELEGRAM_BOT_TOKEN": "123456:ABC-your-token",
+        "TELEGRAM_CHAT_ID": "-100123456789"
       }
     }
   }
 }
 ```
 
-### Telegram
+**5. Restart Claude Desktop** (Cmd+Q → reopen).
+
+---
+
+## Option C: Slack
+
+Best for teams — Approve/Deny buttons, messages stay in your team's channel.
+
+**1. Create a Slack app:**
+
+1. Go to [api.slack.com/apps](https://api.slack.com/apps) → **Create New App** → **From scratch**
+2. Name it (e.g. `call-a-human`) and pick your workspace → **Create App**
+
+**Enable Socket Mode:**
+
+3. Sidebar → **Socket Mode** → toggle on
+4. Generate an App-Level Token with scope `connections:write` → copy as `SLACK_APP_TOKEN` (`xapp-…`)
+
+**Add bot scopes:**
+
+5. Sidebar → **OAuth & Permissions** → **Bot Token Scopes** → Add:
+   `chat:write`, `channels:history` (add `groups:history` for private channels)
+
+**Enable Events:**
+
+6. Sidebar → **Event Subscriptions** → toggle on → **Subscribe to bot events** → Add `message.channels` (and/or `message.groups`)
+
+**Enable Interactivity:**
+
+7. Sidebar → **Interactivity & Shortcuts** → toggle on → Save
+
+**Install and get tokens:**
+
+8. Sidebar → **Install App** → **Install to Workspace** → Allow
+9. Copy the **Bot User OAuth Token** as `SLACK_BOT_TOKEN` (`xoxb-…`)
+
+**Find your channel ID:**
+
+10. Right-click the channel in Slack → **Copy link** → the last segment is the ID (e.g. `C1234567890`)
+11. Invite the bot: type `/invite @call-a-human` in the channel
+
+**2. Verify credentials:**
+
+```bash
+CALL_HUMAN_CHANNEL=slack \
+SLACK_BOT_TOKEN=xoxb-... \
+SLACK_APP_TOKEN=xapp-... \
+SLACK_CHANNEL_ID=C... \
+uv run call-a-human-mcp --check
+```
+
+A test message appears in Slack. If it fails, check the bot is invited to the channel.
+
+**3. Add to Claude Desktop:**
 
 ```json
 {
   "mcpServers": {
     "call-a-human": {
-      "command": "uvx",
-      "args": ["call-a-human-mcp"],
+      "command": "uv",
+      "args": ["--directory", "/path/to/call-a-human-mcp", "run", "call-a-human-mcp"],
       "env": {
-        "CALL_HUMAN_CHANNEL": "telegram",
-        "TELEGRAM_BOT_TOKEN": "123456:ABC-your-bot-token",
-        "TELEGRAM_CHAT_ID": "-100123456789",
-        "CALL_HUMAN_TIMEOUT": "300"
+        "CALL_HUMAN_CHANNEL": "slack",
+        "SLACK_BOT_TOKEN": "xoxb-your-bot-token",
+        "SLACK_APP_TOKEN": "xapp-your-app-token",
+        "SLACK_CHANNEL_ID": "C1234567890"
       }
     }
   }
 }
+```
+
+**4. Restart Claude Desktop** (Cmd+Q → reopen).
+
+---
+
+## Other MCP clients
+
+### Cursor
+
+Add to `~/.cursor/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "call-a-human": {
+      "command": "uv",
+      "args": ["--directory", "/path/to/call-a-human-mcp", "run", "call-a-human-mcp"],
+      "env": {
+        "CALL_HUMAN_CHANNEL": "telegram",
+        "TELEGRAM_BOT_TOKEN": "...",
+        "TELEGRAM_CHAT_ID": "..."
+      }
+    }
+  }
+}
+```
+
+Or connect to a running SSE server:
+
+```json
+{
+  "mcpServers": {
+    "call-a-human": {
+      "url": "http://localhost:8000/sse"
+    }
+  }
+}
+```
+
+### Windsurf
+
+Add to `~/.codeium/windsurf/mcp_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "call-a-human": {
+      "serverUrl": "http://localhost:8000/sse"
+    }
+  }
+}
+```
+
+Start the SSE server first:
+
+```bash
+CALL_HUMAN_CHANNEL=slack ... call-a-human-mcp --transport sse --host 0.0.0.0 --port 8000
 ```
 
 ---
 
 ## Running as a persistent SSE server
 
-For MCP clients that connect over HTTP (Cursor, Windsurf, remote agents):
+For self-hosted deployments or clients that connect over HTTP:
 
 ```bash
 export CALL_HUMAN_CHANNEL=slack
@@ -216,27 +257,50 @@ export SLACK_CHANNEL_ID=C...
 call-a-human-mcp --transport sse --host 0.0.0.0 --port 8000
 ```
 
-Connect your MCP client to `http://localhost:8000/sse`.
-
-## Docker
+Or with Docker:
 
 ```bash
 cp .env.example .env   # fill in your credentials
 docker compose up -d
 ```
 
-The SSE server starts on `http://localhost:8000/sse`. Audit logs are written to `./logs/audit.jsonl` on the host.
+Audit logs are written to `./logs/audit.jsonl` on the host.
 
-To build and run manually:
+---
+
+## Trying tools interactively (without an AI agent)
+
+Use the MCP Inspector to call tools directly:
 
 ```bash
-docker build -t call-a-human-mcp .
-docker run -p 8000:8000 --env-file .env call-a-human-mcp
+uv tool install mcp
+CALL_HUMAN_CHANNEL=cli mcp dev src/call_a_human_mcp/server.py
 ```
+
+The browser UI lets you call `ask_human` and `request_approval` manually and inspect the responses.
+
+---
+
+## All configuration options
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `CALL_HUMAN_CHANNEL` | Yes | — | `cli`, `slack`, or `telegram` |
+| `CALL_HUMAN_TIMEOUT` | No | `300` | Seconds to wait before auto-denying |
+| `CALL_HUMAN_AUDIT_LOG` | No | — | Path to JSONL audit log file |
+| `SLACK_BOT_TOKEN` | Slack only | — | Bot OAuth token (`xoxb-…`) |
+| `SLACK_APP_TOKEN` | Slack only | — | Socket Mode app token (`xapp-…`) |
+| `SLACK_CHANNEL_ID` | Slack only | — | Channel to post into (`C…`) |
+| `TELEGRAM_BOT_TOKEN` | Telegram only | — | Bot token from @BotFather |
+| `TELEGRAM_CHAT_ID` | Telegram only | — | Chat/group ID to post into |
+
+Copy `.env.example` to `.env` and fill in your values.
+
+---
 
 ## Audit log
 
-Set `CALL_HUMAN_AUDIT_LOG` to a file path to enable append-only JSONL logging of every request and response:
+Set `CALL_HUMAN_AUDIT_LOG` to enable append-only JSONL logging:
 
 ```bash
 CALL_HUMAN_AUDIT_LOG=./logs/audit.jsonl call-a-human-mcp
@@ -263,18 +327,18 @@ tail -f logs/audit.jsonl | python3 -m json.tool
 ## How it works
 
 ```
-AI agent (Claude)              call-a-human-mcp           Human (Slack/Telegram)
-─────────────────              ────────────────           ──────────────────────
+AI agent (Claude)              call-a-human-mcp           Human (Slack/Telegram/macOS)
+─────────────────              ────────────────           ────────────────────────────
 request_approval(             block on                   sees message with
   "delete database")   ──►    threading.Event    ──►     Approve / Deny buttons
                                                           │
                                                           │ clicks Approve
                                                           ▼
-{"approved": true,    ◄──    event.set()         ◄──    button handler fires
+{"approved": true,    ◄──    event.set()         ◄──    button/dialog handler fires
  "reason": "alice"}
 ```
 
-**Thread model**: The MCP tool handler blocks on a `threading.Event`. A background daemon thread (Slack Socket Mode handler or Telegram long-poll loop) receives the human's response, writes it to the shared `HumanRequest` object, then calls `event.set()` to unblock the tool handler.
+The MCP tool handler blocks on a `threading.Event`. A background daemon thread (Slack Socket Mode, Telegram long-poll, or macOS dialog subprocess) fires `event.set()` when the human responds.
 
 ---
 
@@ -285,10 +349,7 @@ git clone https://github.com/nishantmodak/call-a-human-mcp
 cd call-a-human-mcp
 uv sync --extra dev
 
-# Run tests
 uv run --extra dev pytest -v
-
-# Lint
 uv run --extra dev ruff check src tests
 ```
 
@@ -296,12 +357,11 @@ uv run --extra dev ruff check src tests
 
 ## Extending with a new channel
 
-Adding SMS, email, or voice calls later requires only:
-
 1. Create `src/call_a_human_mcp/channels/sms.py` subclassing `Channel`
 2. Implement `start()`, `ask()`, and `request_approval()`
 3. Add `"sms"` to `config.py` validation with its required env vars
 4. Add a factory branch in `server.py`'s `create_server()`
+5. Add `--check` support in `__main__.py`'s `_run_check()`
 
 No changes to the MCP tool definitions needed.
 

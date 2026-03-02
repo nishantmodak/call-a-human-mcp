@@ -30,11 +30,19 @@ mcp = FastMCP(
 
 
 def _get_channel() -> Channel:
+    global _channel
     if _channel is None:
-        raise RuntimeError(
-            "Channel not initialised. Call create_server() before invoking MCP tools."
-        )
-    return _channel
+        # Auto-initialize from env when imported directly (e.g. `mcp dev server.py`).
+        # In that workflow __main__.py is never run, so create_server() is never called.
+        import os
+        if os.environ.get("CALL_HUMAN_CHANNEL"):
+            create_server(Config.from_env())
+        else:
+            raise RuntimeError(
+                "CALL_HUMAN_CHANNEL is not set. "
+                "Add it to your environment or MCP client config."
+            )
+    return _channel  # type: ignore[return-value]
 
 
 @mcp.tool()

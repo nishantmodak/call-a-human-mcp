@@ -273,8 +273,7 @@ Audit logs are written to `./logs/audit.jsonl` on the host.
 Use the MCP Inspector to call tools directly:
 
 ```bash
-uv tool install mcp
-CALL_HUMAN_CHANNEL=cli mcp dev src/call_a_human_mcp/server.py
+CALL_HUMAN_CHANNEL=cli uv run mcp dev src/call_a_human_mcp/server.py
 ```
 
 The browser UI lets you call `ask_human` and `request_approval` manually and inspect the responses.

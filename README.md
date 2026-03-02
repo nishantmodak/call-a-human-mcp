@@ -19,8 +19,15 @@ The tool call **blocks** until the human responds (or the timeout expires).
 
 ### CLI (fastest to try)
 
-No accounts needed. Prints to your terminal and reads your input.
+No accounts needed. The channel picks the best available interaction method automatically:
 
+| Environment | How you see the prompt |
+|-------------|----------------------|
+| Terminal (mcp dev, SSE mode) | Prints to `/dev/tty`, reads your input |
+| Claude Desktop on macOS | Native system dialog (via `osascript`) |
+| CI / Docker / Windows | `TimeoutError` with a clear message — use Slack or Telegram instead |
+
+**Terminal prompt:**
 ```
 ============================================================
 APPROVAL REQUIRED
@@ -31,7 +38,9 @@ Details: db-staging-01 on RDS
 Approve? [y/N]:
 ```
 
-> **How it works with stdio transport**: MCP's stdio transport owns `stdin`/`stdout` for its protocol messages. The CLI channel bypasses this by reading and writing directly to `/dev/tty` (the controlling terminal), so prompts appear in your terminal without interfering with the MCP wire protocol. Falls back to `stderr`/`stdin` when `/dev/tty` is unavailable (Windows, CI, Docker containers without an attached TTY — in those cases use Slack or Telegram instead).
+**macOS dialog (Claude Desktop):**
+
+A native macOS dialog pops up even when the process has no terminal — your answer goes directly back to the AI agent.
 
 ### Slack
 
@@ -131,7 +140,9 @@ The Inspector lets you call `ask_human` and `request_approval` directly and see 
 
 Edit `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
-### CLI (terminal prompts)
+### CLI (macOS native dialogs)
+
+On macOS, the CLI channel automatically falls back to native system dialogs when no terminal is attached — which is exactly what happens when Claude Desktop launches the server as a subprocess.
 
 ```json
 {
@@ -147,7 +158,9 @@ Edit `~/Library/Application Support/Claude/claude_desktop_config.json`:
 }
 ```
 
-Approvals appear in the terminal where Claude Desktop is running (or in Console.app on macOS).
+A macOS dialog pops up when Claude calls `ask_human` or `request_approval`. No Slack or Telegram account needed.
+
+> **Not on macOS?** Use Slack or Telegram instead — the CLI channel has no interactive fallback on Windows or Linux without a terminal.
 
 ### Slack
 

@@ -1,0 +1,23 @@
+services:
+  call-a-human:
+    build: .
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    env_file:
+      - .env
+    # Optional: persist audit log outside the container
+    volumes:
+      - ./logs:/logs
+    environment:
+      CALL_HUMAN_AUDIT_LOG: /logs/audit.jsonl
+
+# ── Quick start ──────────────────────────────────────────────────────────────
+#
+#   cp .env.example .env   # fill in CALL_HUMAN_CHANNEL + credentials
+#   docker compose up -d
+#
+# MCP clients connect to: http://localhost:8000/sse
+#
+# Tail the audit log:
+#   tail -f logs/audit.jsonl | python3 -m json.tool

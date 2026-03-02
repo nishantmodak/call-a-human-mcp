@@ -205,6 +205,46 @@ call-a-human-mcp --transport sse --host 0.0.0.0 --port 8000
 
 Connect your MCP client to `http://localhost:8000/sse`.
 
+## Docker
+
+```bash
+cp .env.example .env   # fill in your credentials
+docker compose up -d
+```
+
+The SSE server starts on `http://localhost:8000/sse`. Audit logs are written to `./logs/audit.jsonl` on the host.
+
+To build and run manually:
+
+```bash
+docker build -t call-a-human-mcp .
+docker run -p 8000:8000 --env-file .env call-a-human-mcp
+```
+
+## Audit log
+
+Set `CALL_HUMAN_AUDIT_LOG` to a file path to enable append-only JSONL logging of every request and response:
+
+```bash
+CALL_HUMAN_AUDIT_LOG=./logs/audit.jsonl call-a-human-mcp
+```
+
+Each line is a JSON object:
+
+```jsonc
+// ask_human
+{"timestamp":"2024-03-01T12:00:00.123Z","request_id":"abc123","tool":"ask_human","question":"Which env?","context":"","timed_out":false,"duration_ms":4210}
+
+// request_approval
+{"timestamp":"2024-03-01T12:05:00.456Z","request_id":"def456","tool":"request_approval","action":"delete db","details":"","approved":true,"reason":"alice","timed_out":false,"duration_ms":8700}
+```
+
+Tail and pretty-print live:
+
+```bash
+tail -f logs/audit.jsonl | python3 -m json.tool
+```
+
 ---
 
 ## How it works

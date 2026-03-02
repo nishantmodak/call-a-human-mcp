@@ -3,18 +3,21 @@
 from __future__ import annotations
 
 import logging
+import time
 from typing import Annotated
 
 from mcp.server.fastmcp import FastMCP
 
+from call_a_human_mcp.audit import AuditLog
 from call_a_human_mcp.channels.base import Channel
 from call_a_human_mcp.config import Config, ConfigError
 from call_a_human_mcp.request import HumanRequest
 
 logger = logging.getLogger(__name__)
 
-# Module-level singleton set by create_server()
+# Module-level singletons set by create_server()
 _channel: Channel | None = None
+_audit: AuditLog = AuditLog("")  # no-op until create_server() sets a real path
 
 mcp = FastMCP(
     name="call-a-human",
@@ -47,12 +50,33 @@ def ask_human(
     """
     req = HumanRequest(question=question, context=context)
     channel = _get_channel()
-    # Lazily start the channel background thread on first tool call
     channel.start()
+
+    timed_out = False
+    started = time.monotonic()
     try:
-        return channel.ask(req)
+        response = channel.ask(req)
     except TimeoutError as exc:
+        timed_out = True
+        _audit.record({
+            "request_id": req.request_id,
+            "tool": "ask_human",
+            "question": question,
+            "context": context,
+            "timed_out": True,
+            "duration_ms": int((time.monotonic() - started) * 1000),
+        })
         raise RuntimeError(str(exc)) from exc
+
+    _audit.record({
+        "request_id": req.request_id,
+        "tool": "ask_human",
+        "question": question,
+        "context": context,
+        "timed_out": False,
+        "duration_ms": int((time.monotonic() - started) * 1000),
+    })
+    return response
 
 
 @mcp.tool()
@@ -71,18 +95,42 @@ def request_approval(
     """
     req = HumanRequest(action=action, details=details)
     channel = _get_channel()
-    # Lazily start the channel background thread on first tool call
     channel.start()
+
+    started = time.monotonic()
     try:
         approved, reason = channel.request_approval(req)
-        return {"approved": approved, "reason": reason}
     except TimeoutError as exc:
+        _audit.record({
+            "request_id": req.request_id,
+            "tool": "request_approval",
+            "action": action,
+            "details": details,
+            "approved": False,
+            "reason": "",
+            "timed_out": True,
+            "duration_ms": int((time.monotonic() - started) * 1000),
+        })
         raise RuntimeError(str(exc)) from exc
+
+    _audit.record({
+        "request_id": req.request_id,
+        "tool": "request_approval",
+        "action": action,
+        "details": details,
+        "approved": approved,
+        "reason": reason,
+        "timed_out": False,
+        "duration_ms": int((time.monotonic() - started) * 1000),
+    })
+    return {"approved": approved, "reason": reason}
 
 
 def create_server(config: Config) -> FastMCP:
-    """Initialise the channel singleton and return the FastMCP instance."""
-    global _channel
+    """Initialise the channel and audit log singletons, return the FastMCP instance."""
+    global _channel, _audit
+
+    _audit = AuditLog(config.audit_log)
 
     if config.channel == "cli":
         from call_a_human_mcp.channels.cli import CLIChannel

@@ -12,7 +12,7 @@ class ConfigError(Exception):
 
 @dataclass(frozen=True)
 class Config:
-    channel: str        # "slack" | "telegram"
+    channel: str        # "cli" | "slack" | "telegram"
     timeout: int        # seconds to wait for a human response
 
     # Slack
@@ -23,6 +23,9 @@ class Config:
     # Telegram
     telegram_bot_token: str = ""
     telegram_chat_id: str = ""
+
+    # Audit log (optional)
+    audit_log: str = ""     # path to JSONL file; empty = disabled
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -38,8 +41,10 @@ class Config:
         except ValueError:
             raise ConfigError("CALL_HUMAN_TIMEOUT must be an integer number of seconds.")
 
+        audit_log = os.environ.get("CALL_HUMAN_AUDIT_LOG", "")
+
         if channel == "cli":
-            return cls(channel=channel, timeout=timeout)
+            return cls(channel=channel, timeout=timeout, audit_log=audit_log)
 
         if channel == "slack":
             for var in ("SLACK_BOT_TOKEN", "SLACK_APP_TOKEN", "SLACK_CHANNEL_ID"):
@@ -48,6 +53,7 @@ class Config:
             return cls(
                 channel=channel,
                 timeout=timeout,
+                audit_log=audit_log,
                 slack_bot_token=os.environ["SLACK_BOT_TOKEN"],
                 slack_app_token=os.environ["SLACK_APP_TOKEN"],
                 slack_channel_id=os.environ["SLACK_CHANNEL_ID"],
@@ -60,6 +66,7 @@ class Config:
         return cls(
             channel=channel,
             timeout=timeout,
+            audit_log=audit_log,
             telegram_bot_token=os.environ["TELEGRAM_BOT_TOKEN"],
             telegram_chat_id=os.environ["TELEGRAM_CHAT_ID"],
         )

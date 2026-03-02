@@ -268,6 +268,36 @@ Audit logs are written to `./logs/audit.jsonl` on the host.
 
 ---
 
+## Getting Claude to call these tools automatically
+
+The MCP server already tells Claude when to use the tools, but the most reliable way to make Claude call them *proactively* — without you explicitly asking — is to add a custom system prompt in your AI client.
+
+### Claude Desktop
+
+Go to **Settings → Custom Instructions** and add:
+
+```
+Before taking any irreversible action (deleting files, sending messages,
+making purchases, modifying production systems, running destructive commands),
+you MUST call request_approval and wait for explicit approval before proceeding.
+
+When you are unsure about user preferences, file paths, credentials, or any
+ambiguous decision, call ask_human instead of guessing.
+```
+
+This makes the behavior consistent across all conversations, without needing to remind Claude each time.
+
+### Cursor / Windsurf
+
+Add a `.cursorrules` file (Cursor) or equivalent to your project:
+
+```
+Before any irreversible action, call the request_approval MCP tool.
+When unsure about preferences or credentials, call ask_human instead of guessing.
+```
+
+---
+
 ## Trying tools interactively (without an AI agent)
 
 Use the MCP Inspector to call tools directly:

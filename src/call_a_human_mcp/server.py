@@ -22,9 +22,13 @@ _audit: AuditLog = AuditLog("")  # no-op until create_server() sets a real path
 mcp = FastMCP(
     name="call-a-human",
     instructions=(
-        "Use ask_human when you need a free-form answer from a human — "
-        "for preferences, clarifications, or ambiguous decisions. "
-        "Use request_approval before taking any irreversible or high-stakes action."
+        "ALWAYS call ask_human when you are unsure about user preferences, "
+        "credentials, file paths, or any ambiguous decision — never guess. "
+        "ALWAYS call request_approval before any irreversible or high-stakes action: "
+        "deleting files or data, sending messages or emails, making purchases, "
+        "modifying production systems, running destructive commands, or anything "
+        "that cannot be easily undone. Do not proceed with such actions until "
+        "request_approval returns {\"approved\": true}."
     ),
 )
 

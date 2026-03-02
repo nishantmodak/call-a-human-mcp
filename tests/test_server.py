@@ -44,9 +44,10 @@ def test_ask_human_timeout_raises_runtime_error():
         ask_human(question="Will you timeout?")
 
 
-def test_ask_human_no_channel_raises():
+def test_ask_human_no_channel_raises(monkeypatch):
     server_module._channel = None
-    with pytest.raises(RuntimeError, match="Channel not initialised"):
+    monkeypatch.delenv("CALL_HUMAN_CHANNEL", raising=False)
+    with pytest.raises(RuntimeError, match="CALL_HUMAN_CHANNEL"):
         ask_human(question="hello")
 
 
@@ -80,9 +81,10 @@ def test_request_approval_timeout_raises_runtime_error():
         request_approval(action="nuke database")
 
 
-def test_request_approval_no_channel_raises():
+def test_request_approval_no_channel_raises(monkeypatch):
     server_module._channel = None
-    with pytest.raises(RuntimeError, match="Channel not initialised"):
+    monkeypatch.delenv("CALL_HUMAN_CHANNEL", raising=False)
+    with pytest.raises(RuntimeError, match="CALL_HUMAN_CHANNEL"):
         request_approval(action="something")
 
 

@@ -120,6 +120,8 @@ A test message appears in Telegram. If it doesn't, recheck the token and chat ID
 
 Best for teams — Approve/Deny buttons, messages stay in your team's channel.
 
+> **Full permissions reference:** [docs/slack-permissions.md](docs/slack-permissions.md)
+
 **1. Create a Slack app:**
 
 1. Go to [api.slack.com/apps](https://api.slack.com/apps) → **Create New App** → **From scratch**

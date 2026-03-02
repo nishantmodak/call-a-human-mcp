@@ -400,4 +400,4 @@ No changes to the MCP tool definitions needed.
 
 ## License
 
-MIT
+Apache 2.0 — see [LICENSE](LICENSE) for details.

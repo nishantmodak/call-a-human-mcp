@@ -35,6 +35,10 @@ call-a-human-mcp = "call_a_human_mcp.__main__:main"
 [tool.hatch.build.targets.wheel]
 packages = ["src/call_a_human_mcp"]
 
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
 [tool.ruff]
 line-length = 100
 target-version = "py310"

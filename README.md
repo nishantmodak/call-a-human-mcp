@@ -25,7 +25,7 @@ Two tools:
 
 The tool call **blocks** until you respond (or the timeout expires).
 
-**More:** [Use cases](docs/use-cases.md) · [Slack permissions](docs/slack-permissions.md) · [Troubleshooting](docs/troubleshooting.md)
+**More:** [Use cases](docs/use-cases.md) · [Slack permissions](docs/slack-permissions.md) · [Troubleshooting](docs/troubleshooting.md) · [Discord](https://discord.gg/kuRmPQzs28)
 
 ---
 
@@ -524,6 +524,12 @@ See [docs/troubleshooting.md](docs/troubleshooting.md) for solutions to common i
 - Slack thread replies not received → private channel needs extra permissions
 - `message.groups` not showing in Slack event list → add `groups:read` scope first
 - Claude doesn't call tools automatically → add a custom system prompt
+
+---
+
+## Community
+
+Questions, ideas, or just want to share how you're using it? [Join the Discord](https://discord.gg/kuRmPQzs28).
 
 ---
 

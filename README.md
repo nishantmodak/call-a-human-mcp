@@ -392,17 +392,22 @@ Audit logs are written to `./logs/audit.jsonl` on the host.
 
 The MCP server already tells Claude when to use the tools, but the most reliable way to make Claude call them *proactively* — without you explicitly asking — is to add a custom system prompt in your AI client.
 
+The key principle (learned from production use): **tell Claude to call the tools directly — not to ask you whether to call them.** The approval happens in Slack/Telegram. Claude's job is just to trigger it.
+
 ### Claude Desktop
 
 Go to **Settings → Custom Instructions** and add:
 
 ```
-Before taking any irreversible action (deleting files, sending messages,
-making purchases, modifying production systems, running destructive commands),
-you MUST call request_approval and wait for explicit approval before proceeding.
+You have access to request_approval and ask_human tools via the call-a-human MCP server.
 
-When you are unsure about user preferences, file paths, credentials, or any
-ambiguous decision, call ask_human instead of guessing.
+Call request_approval BEFORE any irreversible action: deleting files, sending
+messages, making purchases, modifying production systems, running destructive
+commands. Do NOT ask "should I proceed?" — just call the tool and wait.
+Only continue if you receive {"approved": true}.
+
+Call ask_human when you are unsure about preferences, file paths, credentials,
+or any ambiguous decision. Never guess — ask.
 ```
 
 This makes the behavior consistent across all conversations, without needing to remind Claude each time.
@@ -412,7 +417,8 @@ This makes the behavior consistent across all conversations, without needing to 
 Add a `.cursorrules` file (Cursor) or equivalent to your project:
 
 ```
-Before any irreversible action, call the request_approval MCP tool.
+Before any irreversible action, call the request_approval MCP tool directly —
+do not ask the user whether to call it. Wait for {"approved": true} before proceeding.
 When unsure about preferences or credentials, call ask_human instead of guessing.
 ```
 

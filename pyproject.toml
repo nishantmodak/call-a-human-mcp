@@ -15,18 +15,18 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: Apache Software License",
 ]
+dependencies = [
+    "anyio>=4.5.0",
+    "mcp[cli]>=1.6.0,<2",
+    "slack-bolt>=1.18.0",
+    "slack-sdk>=3.27.0",
+    "requests>=2.31.0",
+]
 
 [project.urls]
 Homepage = "https://github.com/nishantmodak/call-a-human-mcp"
 Repository = "https://github.com/nishantmodak/call-a-human-mcp"
 "Bug Tracker" = "https://github.com/nishantmodak/call-a-human-mcp/issues"
-
-dependencies = [
-    "mcp[cli]>=1.6.0",
-    "slack-bolt>=1.18.0",
-    "slack-sdk>=3.27.0",
-    "requests>=2.31.0",
-]
 
 [project.optional-dependencies]
 dev = [

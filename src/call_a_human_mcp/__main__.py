@@ -79,8 +79,6 @@ def main() -> None:
 
 def _run_check(config) -> None:
     """Send a test message to verify credentials, then exit."""
-    from call_a_human_mcp.request import HumanRequest
-
     print(f"Checking {config.channel} channel...", flush=True)
 
     if config.channel == "cli":
@@ -130,7 +128,6 @@ def _check_slack(config) -> None:
 
     # 4. Verify Socket Mode connects (confirms app token is valid and Socket Mode is enabled).
     import threading
-    import time
     try:
         from slack_bolt import App
         from slack_bolt.adapter.socket_mode import SocketModeHandler
@@ -141,9 +138,6 @@ def _check_slack(config) -> None:
     logger = logging.getLogger("call_a_human_mcp.check")
     connected = threading.Event()
     app = App(token=config.slack_bot_token, logger=logger)
-
-    # Patch the handler to signal once the WebSocket opens
-    original_connect = None
 
     handler = SocketModeHandler(app, config.slack_app_token)
 

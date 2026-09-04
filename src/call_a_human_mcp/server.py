@@ -6,6 +6,7 @@ import logging
 import time
 from typing import Annotated
 
+import anyio
 from mcp.server.fastmcp import FastMCP
 
 from call_a_human_mcp.audit import AuditLog
@@ -55,7 +56,7 @@ def _get_channel() -> Channel:
 
 
 @mcp.tool()
-def ask_human(
+async def ask_human(
     question: Annotated[str, "The question to ask the human"],
     context: Annotated[str, "Optional background context to help the human answer"] = "",
 ) -> str:
@@ -67,14 +68,17 @@ def ask_human(
     """
     req = HumanRequest(question=question, context=context)
     channel = _get_channel()
-    channel.start()
+    # Offload the (potentially blocking, up to ~10s on Slack) connection setup
+    # so the shared event loop stays responsive for other clients.
+    await anyio.to_thread.run_sync(channel.start)
 
-    timed_out = False
     started = time.monotonic()
     try:
-        response = channel.ask(req)
+        # ask() blocks on threading.Event.wait() for up to CALL_HUMAN_TIMEOUT.
+        # Run it on a worker thread so the event loop (and every other SSE
+        # connection sharing it) keeps making progress while we wait.
+        response = await anyio.to_thread.run_sync(channel.ask, req)
     except TimeoutError as exc:
-        timed_out = True
         _audit.record({
             "request_id": req.request_id,
             "tool": "ask_human",
@@ -97,7 +101,7 @@ def ask_human(
 
 
 @mcp.tool()
-def request_approval(
+async def request_approval(
     action: Annotated[str, "Short description of the action that needs approval"],
     details: Annotated[str, "Additional details such as parameters, file paths, or impact"] = "",
 ) -> dict:
@@ -112,11 +116,16 @@ def request_approval(
     """
     req = HumanRequest(action=action, details=details)
     channel = _get_channel()
-    channel.start()
+    # Offload the (potentially blocking, up to ~10s on Slack) connection setup
+    # so the shared event loop stays responsive for other clients.
+    await anyio.to_thread.run_sync(channel.start)
 
     started = time.monotonic()
     try:
-        approved, reason = channel.request_approval(req)
+        # request_approval() blocks on threading.Event.wait() for up to
+        # CALL_HUMAN_TIMEOUT. Run it on a worker thread so the event loop (and
+        # every other SSE connection sharing it) keeps making progress.
+        approved, reason = await anyio.to_thread.run_sync(channel.request_approval, req)
     except TimeoutError as exc:
         _audit.record({
             "request_id": req.request_id,

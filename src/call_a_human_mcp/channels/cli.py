@@ -80,7 +80,10 @@ def _macos_ask(question: str, context: str) -> str:
     prompt = question
     if context:
         prompt = f"{question}\n\nContext: {context}"
-    script = f'display dialog {_quote(prompt)} default answer "" with title "AI Agent Question"'
+    script = (
+        f"text returned of (display dialog {_quote(prompt)} "
+        f'default answer "" with title "AI Agent Question")'
+    )
     result = subprocess.run(
         ["osascript", "-e", script],
         capture_output=True,
@@ -89,11 +92,7 @@ def _macos_ask(question: str, context: str) -> str:
     if result.returncode != 0:
         # User clicked Cancel
         raise TimeoutError("No answer provided (dialog cancelled).")
-    # osascript returns "button returned:OK, text returned:answer"
-    for part in result.stdout.strip().split(", "):
-        if part.startswith("text returned:"):
-            return part[len("text returned:"):]
-    return ""
+    return result.stdout.strip()
 
 
 def _macos_approve(action: str, details: str) -> tuple[bool, str]:

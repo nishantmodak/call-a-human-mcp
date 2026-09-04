@@ -62,7 +62,8 @@ def test_timestamp_is_utc_iso(tmp_path):
     assert "T" in ts
 
 
-def test_audit_log_from_server(tmp_path, monkeypatch):
+@pytest.mark.asyncio
+async def test_audit_log_from_server(tmp_path, monkeypatch):
     """Integration: server.py wires audit log into tool calls."""
     import call_a_human_mcp.server as server_module
     from call_a_human_mcp.config import Config
@@ -77,8 +78,8 @@ def test_audit_log_from_server(tmp_path, monkeypatch):
     create_server(config)
     server_module._channel = ImmediateChannel(ask_response="blue", approved=True)
 
-    ask_human(question="Favourite colour?", context="picking a theme")
-    request_approval(action="deploy to prod", details="v1.2.3")
+    await ask_human(question="Favourite colour?", context="picking a theme")
+    await request_approval(action="deploy to prod", details="v1.2.3")
 
     with open(audit_path) as f:
         lines = f.readlines()

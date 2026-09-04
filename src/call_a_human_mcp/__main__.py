@@ -138,8 +138,9 @@ def _check_slack(config) -> None:
         print("ERROR: slack-bolt not installed", file=sys.stderr)
         sys.exit(1)
 
+    logger = logging.getLogger("call_a_human_mcp.check")
     connected = threading.Event()
-    app = App(token=config.slack_bot_token, logger=logging.getLogger("slack_bolt.check"))
+    app = App(token=config.slack_bot_token, logger=logger)
 
     # Patch the handler to signal once the WebSocket opens
     original_connect = None

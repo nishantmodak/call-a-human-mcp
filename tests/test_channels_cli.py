@@ -2,7 +2,7 @@
 
 import pytest
 
-from call_a_human_mcp.channels.cli import CLIChannel, _macos_available
+from call_a_human_mcp.channels.cli import CLIChannel, _macos_ask
 from call_a_human_mcp.request import HumanRequest
 
 
@@ -104,6 +104,50 @@ def test_request_approval_uses_macos_dialog_when_no_tty(channel, monkeypatch):
     )
     approved, _ = channel.request_approval(HumanRequest(action="deploy"))
     assert approved is True
+
+
+# ------------------------------------------------------------------
+# macOS dialog path — _macos_ask osascript stdout handling
+# ------------------------------------------------------------------
+
+
+class _FakeCompletedProcess:
+    """Minimal stand-in for subprocess.CompletedProcess used by _macos_ask."""
+
+    def __init__(self, stdout: str = "", returncode: int = 0):
+        self.stdout = stdout
+        self.returncode = returncode
+
+
+def _fake_osascript(monkeypatch, *, stdout: str = "", returncode: int = 0):
+    """Patch the cli module's subprocess.run seam. Returns captured argv list."""
+    captured: list[list[str]] = []
+
+    def _run(cmd, *args, **kwargs):
+        captured.append(list(cmd))
+        return _FakeCompletedProcess(stdout=stdout, returncode=returncode)
+
+    monkeypatch.setattr("call_a_human_mcp.channels.cli.subprocess.run", _run)
+    return captured
+
+
+def test_macos_ask_preserves_answer_with_comma_and_space(monkeypatch):
+    _fake_osascript(monkeypatch, stdout="Use staging, but skip migrations")
+    assert _macos_ask("Which env?", "") == "Use staging, but skip migrations"
+
+
+def test_macos_ask_returns_stdout_verbatim_without_splitting(monkeypatch):
+    raw = "button returned:OK, text returned:Use staging, but skip migrations"
+    _fake_osascript(monkeypatch, stdout=raw)
+    assert _macos_ask("Which env?", "") == raw
+
+
+def test_macos_ask_script_extracts_text_returned_field(monkeypatch):
+    captured = _fake_osascript(monkeypatch, stdout="yes")
+    _macos_ask("Any thoughts?", "")
+    script = captured[-1][2]
+    assert script.startswith("text returned of (display dialog ")
+    assert "button returned" not in script
 
 
 # ------------------------------------------------------------------

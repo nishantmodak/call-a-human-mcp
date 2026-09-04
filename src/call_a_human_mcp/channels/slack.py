@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import threading
+import time
 
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
@@ -74,11 +75,10 @@ class SlackChannel(Channel):
             )
             t.start()
             # Poll until the underlying WebSocket client reports connected.
-            import time
             deadline = time.monotonic() + 10
             while time.monotonic() < deadline:
                 client = getattr(self._handler, "client", None)
-                if client is not None and getattr(client, "is_connected", False):
+                if client is not None and client.is_connected():
                     break
                 time.sleep(0.2)
             else:

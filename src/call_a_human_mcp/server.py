@@ -68,12 +68,12 @@ async def ask_human(
     """
     req = HumanRequest(question=question, context=context)
     channel = _get_channel()
-    # Offload the (potentially blocking, up to ~10s on Slack) connection setup
-    # so the shared event loop stays responsive for other clients.
-    await anyio.to_thread.run_sync(channel.start)
 
     started = time.monotonic()
     try:
+        # Offload the (potentially blocking, up to ~10s on Slack) connection setup
+        # so the shared event loop stays responsive for other clients.
+        await anyio.to_thread.run_sync(channel.start)
         # ask() blocks on threading.Event.wait() for up to CALL_HUMAN_TIMEOUT.
         # Run it on a worker thread so the event loop (and every other SSE
         # connection sharing it) keeps making progress while we wait.
@@ -88,6 +88,17 @@ async def ask_human(
             "duration_ms": int((time.monotonic() - started) * 1000),
         })
         raise RuntimeError(str(exc)) from exc
+    except Exception as exc:
+        _audit.record({
+            "request_id": req.request_id,
+            "tool": "ask_human",
+            "question": question,
+            "context": context,
+            "error": type(exc).__name__,
+            "timed_out": False,
+            "duration_ms": int((time.monotonic() - started) * 1000),
+        })
+        raise
 
     _audit.record({
         "request_id": req.request_id,
@@ -116,12 +127,12 @@ async def request_approval(
     """
     req = HumanRequest(action=action, details=details)
     channel = _get_channel()
-    # Offload the (potentially blocking, up to ~10s on Slack) connection setup
-    # so the shared event loop stays responsive for other clients.
-    await anyio.to_thread.run_sync(channel.start)
 
     started = time.monotonic()
     try:
+        # Offload the (potentially blocking, up to ~10s on Slack) connection setup
+        # so the shared event loop stays responsive for other clients.
+        await anyio.to_thread.run_sync(channel.start)
         # request_approval() blocks on threading.Event.wait() for up to
         # CALL_HUMAN_TIMEOUT. Run it on a worker thread so the event loop (and
         # every other SSE connection sharing it) keeps making progress.
@@ -138,6 +149,19 @@ async def request_approval(
             "duration_ms": int((time.monotonic() - started) * 1000),
         })
         raise RuntimeError(str(exc)) from exc
+    except Exception as exc:
+        _audit.record({
+            "request_id": req.request_id,
+            "tool": "request_approval",
+            "action": action,
+            "details": details,
+            "approved": False,
+            "reason": "",
+            "error": type(exc).__name__,
+            "timed_out": False,
+            "duration_ms": int((time.monotonic() - started) * 1000),
+        })
+        raise
 
     _audit.record({
         "request_id": req.request_id,

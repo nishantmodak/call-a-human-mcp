@@ -87,6 +87,53 @@ class BlockingChannel(Channel):
         return self.approved, "tester"
 
 
+class ErrorChannel(Channel):
+    """A mock channel that raises a non-TimeoutError on ask/request_approval.
+
+    Use this to exercise the audit-log error path in server.py. The exception
+    type defaults to RuntimeError but can be customised (e.g. to a real
+    channel exception class) to verify the recorded ``error`` field.
+    """
+
+    def __init__(self, exc: Exception | None = None):
+        self.exc: Exception = exc if exc is not None else RuntimeError("channel delivery failed")
+        self.started = False
+        self.start_calls = 0
+        self.ask_calls: list[HumanRequest] = []
+        self.approval_calls: list[HumanRequest] = []
+
+    def start(self) -> None:
+        self.started = True
+        self.start_calls += 1
+
+    def ask(self, req: HumanRequest) -> str:
+        self.ask_calls.append(req)
+        raise self.exc
+
+    def request_approval(self, req: HumanRequest) -> tuple[bool, str]:
+        self.approval_calls.append(req)
+        raise self.exc
+
+
+class StartErrorChannel(Channel):
+    """A mock channel that raises on start(), simulating a connect failure.
+
+    Models e.g. Slack Socket Mode's ``RuntimeError("...failed to connect...")``.
+    """
+
+    def __init__(self, exc: Exception | None = None):
+        self.exc: Exception = exc if exc is not None else RuntimeError("channel start failed")
+
+    def start(self) -> None:
+        raise self.exc
+
+    def ask(self, req: HumanRequest) -> str:
+        raise self.exc  # unreachable when start() raises first
+
+    def request_approval(self, req: HumanRequest) -> tuple[bool, str]:
+        raise self.exc  # unreachable when start() raises first
+
+
 @pytest.fixture
 def immediate_channel():
     return ImmediateChannel()

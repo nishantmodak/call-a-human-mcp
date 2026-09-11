@@ -78,6 +78,23 @@ async def ask_human(
         # Run it on a worker thread so the event loop (and every other SSE
         # connection sharing it) keeps making progress while we wait.
         response = await anyio.to_thread.run_sync(channel.ask, req)
+    except anyio.get_cancelled_exc_class():
+        # CancelledError is a BaseException (not Exception), so neither the
+        # TimeoutError nor the Exception clause below catches it. A request
+        # may already have been posted to a human (Slack/Telegram) before the
+        # blocking wait was cancelled — record it as a cancelled outcome so
+        # the audit log keeps its "all human requests and outcomes" promise,
+        # then re-raise to let cancellation propagate.
+        _audit.record({
+            "request_id": req.request_id,
+            "tool": "ask_human",
+            "question": question,
+            "context": context,
+            "cancelled": True,
+            "timed_out": False,
+            "duration_ms": int((time.monotonic() - started) * 1000),
+        })
+        raise
     except TimeoutError as exc:
         _audit.record({
             "request_id": req.request_id,
@@ -137,6 +154,25 @@ async def request_approval(
         # CALL_HUMAN_TIMEOUT. Run it on a worker thread so the event loop (and
         # every other SSE connection sharing it) keeps making progress.
         approved, reason = await anyio.to_thread.run_sync(channel.request_approval, req)
+    except anyio.get_cancelled_exc_class():
+        # CancelledError is a BaseException (not Exception), so neither the
+        # TimeoutError nor the Exception clause below catches it. A request
+        # may already have been posted to a human (Slack/Telegram) before the
+        # blocking wait was cancelled — record it as a cancelled outcome so
+        # the audit log keeps its "all human requests and outcomes" promise,
+        # then re-raise to let cancellation propagate.
+        _audit.record({
+            "request_id": req.request_id,
+            "tool": "request_approval",
+            "action": action,
+            "details": details,
+            "approved": False,
+            "reason": "",
+            "cancelled": True,
+            "timed_out": False,
+            "duration_ms": int((time.monotonic() - started) * 1000),
+        })
+        raise
     except TimeoutError as exc:
         _audit.record({
             "request_id": req.request_id,

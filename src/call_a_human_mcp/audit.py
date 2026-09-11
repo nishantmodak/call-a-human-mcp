@@ -12,6 +12,11 @@ Example entry (request_approval):
     {"timestamp": "2024-03-01T12:05:00.456Z", "request_id": "def456",
      "tool": "request_approval", "action": "delete db", "details": "",
      "approved": true, "reason": "alice", "timed_out": false, "duration_ms": 8700}
+
+Example entry (cancelled — client sent notifications/cancelled mid-flight):
+    {"timestamp": "2024-03-01T12:06:00.789Z", "request_id": "ghi789",
+     "tool": "ask_human", "question": "Which env?",
+     "context": "", "cancelled": true, "timed_out": false, "duration_ms": 412}
 """
 
 from __future__ import annotations

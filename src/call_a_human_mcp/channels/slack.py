@@ -64,24 +64,41 @@ class SlackChannel(Channel):
         with self._start_lock:
             if self._started:
                 return
-            self._handler = SocketModeHandler(
-                self._app, self._config.slack_app_token
-            )
-            # Run handler.start() in a daemon thread (single connect path).
-            t = threading.Thread(
-                target=self._handler.start,
-                name="slack-socket-mode",
-                daemon=True,
-            )
-            t.start()
-            # Poll until the underlying WebSocket client reports connected.
-            deadline = time.monotonic() + 10
-            while time.monotonic() < deadline:
-                client = getattr(self._handler, "client", None)
-                if client is not None and client.is_connected():
-                    break
-                time.sleep(0.2)
-            else:
+            self._handler = SocketModeHandler(self._app, self._config.slack_app_token)
+            connected = False
+            try:
+                # Run handler.start() in a daemon thread (single connect path).
+                t = threading.Thread(
+                    target=self._handler.start,
+                    name="slack-socket-mode",
+                    daemon=True,
+                )
+                t.start()
+                # Poll until the underlying WebSocket client reports connected.
+                deadline = time.monotonic() + 10
+                while time.monotonic() < deadline:
+                    client = getattr(self._handler, "client", None)
+                    if client is not None and client.is_connected():
+                        connected = True
+                        break
+                    time.sleep(0.2)
+            finally:
+                if not connected:
+                    # Tear down the partially-started handler and drop our
+                    # reference so a retried start() cannot orphan the
+                    # background IntervalRunner threads / ThreadPoolExecutor
+                    # that SocketModeHandler constructs eagerly at __init__.
+                    handler = self._handler
+                    self._handler = None
+                    try:
+                        handler.close()
+                    except Exception:
+                        logger.warning(
+                            "Failed to close Slack Socket Mode handler on "
+                            "failed startup; background resources may leak.",
+                            exc_info=True,
+                        )
+            if not connected:
                 raise RuntimeError("Slack Socket Mode failed to connect within 10s")
             self._started = True
             logger.info("Slack Socket Mode connected.")
@@ -120,8 +137,7 @@ class SlackChannel(Channel):
             except Exception:
                 pass
             raise TimeoutError(
-                f"No reply from human within {self._config.timeout}s "
-                f"(request {req.request_id})"
+                f"No reply from human within {self._config.timeout}s (request {req.request_id})"
             )
 
         return req.response
@@ -146,8 +162,7 @@ class SlackChannel(Channel):
 
         if not answered:
             raise TimeoutError(
-                f"No approval within {self._config.timeout}s "
-                f"(request {req.request_id})"
+                f"No approval within {self._config.timeout}s (request {req.request_id})"
             )
 
         return req.approved, req.reason
@@ -250,9 +265,7 @@ class SlackChannel(Channel):
             blocks.append(
                 {
                     "type": "context",
-                    "elements": [
-                        {"type": "mrkdwn", "text": f"*Context:* {req.context}"}
-                    ],
+                    "elements": [{"type": "mrkdwn", "text": f"*Context:* {req.context}"}],
                 }
             )
         blocks.append(
@@ -262,8 +275,7 @@ class SlackChannel(Channel):
                     {
                         "type": "mrkdwn",
                         "text": (
-                            f"_Reply in this thread to answer. "
-                            f"Request ID: `{req.request_id}`_"
+                            f"_Reply in this thread to answer. Request ID: `{req.request_id}`_"
                         ),
                     }
                 ],
@@ -278,8 +290,7 @@ class SlackChannel(Channel):
                 "text": {
                     "type": "mrkdwn",
                     "text": (
-                        f":rotating_light: *AI Agent requesting approval*\n"
-                        f"*Action:* {req.action}"
+                        f":rotating_light: *AI Agent requesting approval*\n*Action:* {req.action}"
                     ),
                 },
             },
@@ -315,9 +326,7 @@ class SlackChannel(Channel):
         blocks.append(
             {
                 "type": "context",
-                "elements": [
-                    {"type": "mrkdwn", "text": f"_Request ID: `{req.request_id}`_"}
-                ],
+                "elements": [{"type": "mrkdwn", "text": f"_Request ID: `{req.request_id}`_"}],
             }
         )
         return blocks

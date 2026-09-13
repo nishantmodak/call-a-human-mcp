@@ -526,3 +526,101 @@ async def test_cancelled_during_start_checkpoint_is_audited(tmp_path, monkeypatc
     assert len(entries) == 1
     assert entries[0]["cancelled"] is True
     assert entries[0]["tool"] == "ask_human"
+
+
+# ------------------------------------------------------------------
+# AnyIO CancelScope regression — the real MCP cancellation path
+#
+# MCP's RequestResponder.cancel() cancels an AnyIO CancelScope, which is
+# the actual path taken by notifications/cancelled. The tests above use
+# asyncio.Task.cancel() (direct CancelledError injection), which bypasses
+# the shielding behaviour of anyio.to_thread.run_sync with the default
+# abandon_on_cancel=False: that default causes run_sync to wait for the
+# thread to finish before propagating cancellation, so the except branch
+# would only fire after the worker returns — recording a normal success
+# outcome for the cancelled request. With abandon_on_cancel=True the scope
+# cancellation is observed immediately. These tests exercise that path.
+# ------------------------------------------------------------------
+
+
+async def test_ask_human_cancel_scope_is_audited(tmp_path, monkeypatch):
+    """AnyIO CancelScope cancellation (the real MCP path) must produce a
+    cancelled=true audit entry — not a normal success entry."""
+    import anyio
+
+    audit_path = tmp_path / "audit.jsonl"
+    ch = _CancelChannel()
+    _wire(str(audit_path), monkeypatch, ch)
+
+    # Drive via anyio CancelScope — the same cancellation mechanism MCP's
+    # RequestResponder.cancel() uses via anyio.CancelScope.cancel().
+    with anyio.CancelScope() as scope:
+        async def _cancel_after_parked():
+            parked = await _await_parked(ch, timeout=2)
+            assert parked, "ask() never reached the blocking checkpoint"
+            scope.cancel()
+
+        async with anyio.create_task_group() as tg:
+            tg.start_soon(_cancel_after_parked)
+            try:
+                await ask_human(question="cancel-scope-q?", context="ctx")
+            except BaseException:
+                pass  # cancelled — already handled by scope
+
+    _release(ch)
+
+    entries = _entries(audit_path)
+    assert len(entries) == 1, (
+        f"Expected 1 audit entry (cancelled), got {len(entries)}: {entries}"
+    )
+    e = entries[0]
+    assert e["tool"] == "ask_human"
+    assert e["question"] == "cancel-scope-q?"
+    assert e["context"] == "ctx"
+    assert e["cancelled"] is True, (
+        "Expected cancelled=true but got: " + str(e)
+    )
+    assert e["timed_out"] is False
+    assert "error" not in e
+
+
+async def test_request_approval_cancel_scope_is_audited(tmp_path, monkeypatch):
+    """AnyIO CancelScope cancellation must produce a cancelled=true audit entry
+    for request_approval — not an approved=true success entry."""
+    import anyio
+
+    audit_path = tmp_path / "audit.jsonl"
+    ch = _CancelChannel()
+    _wire(str(audit_path), monkeypatch, ch)
+
+    async def _inner():
+        with anyio.CancelScope() as scope:
+            async def _cancel_after_parked():
+                parked = await _await_parked(ch, timeout=2)
+                assert parked, "request_approval() never reached the blocking checkpoint"
+                scope.cancel()
+
+            async with anyio.create_task_group() as tg:
+                tg.start_soon(_cancel_after_parked)
+                try:
+                    await request_approval(action="cancel-scope-action", details="d")
+                except BaseException:
+                    pass  # cancelled — already handled by scope
+
+    await _inner()
+    _release(ch)
+
+    entries = _entries(audit_path)
+    assert len(entries) == 1, (
+        f"Expected 1 audit entry (cancelled), got {len(entries)}: {entries}"
+    )
+    e = entries[0]
+    assert e["tool"] == "request_approval"
+    assert e["action"] == "cancel-scope-action"
+    assert e["details"] == "d"
+    assert e["cancelled"] is True, (
+        "Expected cancelled=true but got: " + str(e)
+    )
+    assert e["approved"] is False
+    assert e["timed_out"] is False
+    assert "error" not in e

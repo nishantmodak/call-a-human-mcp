@@ -73,11 +73,20 @@ async def ask_human(
     try:
         # Offload the (potentially blocking, up to ~10s on Slack) connection setup
         # so the shared event loop stays responsive for other clients.
-        await anyio.to_thread.run_sync(channel.start)
+        # abandon_on_cancel=True makes AnyIO cancel-scope cancellation (the path
+        # that MCP's RequestResponder.cancel() takes) immediately observable: when
+        # the surrounding CancelScope is cancelled the awaitable returns at once
+        # and raises the backend's cancellation exception, instead of waiting for
+        # the worker thread to finish first (the default abandon_on_cancel=False
+        # shields the wait from scope cancellation, so the except branch below
+        # would only be reached after the worker returns — too late to record the
+        # correct cancelled audit outcome).  The worker thread itself is abandoned
+        # and will unblock once the request's event is set (see _release in tests).
+        await anyio.to_thread.run_sync(channel.start, abandon_on_cancel=True)
         # ask() blocks on threading.Event.wait() for up to CALL_HUMAN_TIMEOUT.
         # Run it on a worker thread so the event loop (and every other SSE
         # connection sharing it) keeps making progress while we wait.
-        response = await anyio.to_thread.run_sync(channel.ask, req)
+        response = await anyio.to_thread.run_sync(channel.ask, req, abandon_on_cancel=True)
     except anyio.get_cancelled_exc_class():
         # CancelledError is a BaseException (not Exception), so neither the
         # TimeoutError nor the Exception clause below catches it. A request
@@ -149,11 +158,14 @@ async def request_approval(
     try:
         # Offload the (potentially blocking, up to ~10s on Slack) connection setup
         # so the shared event loop stays responsive for other clients.
-        await anyio.to_thread.run_sync(channel.start)
+        # abandon_on_cancel=True: see the matching comment in ask_human above.
+        await anyio.to_thread.run_sync(channel.start, abandon_on_cancel=True)
         # request_approval() blocks on threading.Event.wait() for up to
         # CALL_HUMAN_TIMEOUT. Run it on a worker thread so the event loop (and
         # every other SSE connection sharing it) keeps making progress.
-        approved, reason = await anyio.to_thread.run_sync(channel.request_approval, req)
+        approved, reason = await anyio.to_thread.run_sync(
+            channel.request_approval, req, abandon_on_cancel=True
+        )
     except anyio.get_cancelled_exc_class():
         # CancelledError is a BaseException (not Exception), so neither the
         # TimeoutError nor the Exception clause below catches it. A request
